@@ -41,43 +41,6 @@ function onForm(e) {
     createObserver();     
 }
  
-async function getDataFromApi(dataFromApi) {
-    try {
-        const response = await axios.get(BASE_URL, {
-            params: {
-                key: KEY,
-                q: dataFromApi,
-                image_type: 'photo',
-                orientation: 'horizontal',
-                safesearch: true,
-            }
-        }
-        );
-
-        const receivedDataArrayFromApi = response.data.hits; 
-
-        if (receivedDataArrayFromApi.length === 0) {
-            Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.');
-            return;
-        }
-         
-        renderHits(receivedDataArrayFromApi);
-
-        if (page > 1) {          
-            const { height: cardHeight } = document
-                .querySelector(".gallery")
-                .firstElementChild.getBoundingClientRect();
-           
-            window.scrollBy({
-                top: cardHeight * 2,
-                behavior: "smooth",
-            });
-        }     
-    } catch (error) {
-        console.error(error);
-    }
-}
-
 async function getDataFromApi(dataFromApi, page = 1) {
     try {
         const response = await axios.get(BASE_URL, {
@@ -106,19 +69,37 @@ async function getDataFromApi(dataFromApi, page = 1) {
             return;
         }
 
+        const lastCardBeforeNew = document.querySelector('.gallery .photo-card:last-child'); 
+
         renderHits(receivedDataArrayFromApi);
 
+        //плавная прокрутка только после второй и следующих загрузок
+        if (page > 1 && lastCardBeforeNew) {
+            const nextCard = lastCardBeforeNew.nextElementSibling;
+            if (nextCard) {
+                const topOffset = nextCard.getBoundingClientRect().top + window.pageYOffset;
+                const headerHeight = document.querySelector('.search-form').offsetHeight;
+
+                window.scrollTo({
+                    top: topOffset - headerHeight,
+                    behavior: 'smooth',
+                });
+            }
+        }
+
+        // Проверка — достигли ли конца выдачи
         const totalLoaded = document.querySelectorAll('.photo-card').length;
         if (totalLoaded >= totalHits) {
-            observer.disconnect();
+            if (observer) observer.disconnect();
             Notiflix.Notify.info("We're sorry, but you've reached the end of search results.");
         }
 
     } catch (error) {
         console.error(error);
+        Notiflix.Notify.failure("Something went wrong. Please try again.");
     }
 }
-
+  
 function createMarkup(hits) {
     return hits.map(({ webformatURL, largeImageURL, tags, likes, views, comments, downloads }) => {
         return `  
